@@ -1,0 +1,84 @@
+# x-base_service: &base_service
+#     ports:
+#       - "${WEBUI_PORT:-7860}:7860"
+#     # volumes that will be used
+#     volumes:
+#       # data volume used to download the models inside the ./data directory (that will be mapped inside the /data director of container)
+#       - &v1 ./data:/data
+#       # output volume used to store inference output
+#       - &v2 ./output:/output
+#     stop_signal: SIGKILL
+#     tty: true
+#     deploy:
+#       resources:
+#         reservations:
+#           # nvidia
+#           devices:
+#               - driver: nvidia
+#                 device_ids: ['0']
+#                 capabilities: [compute, utility]
+
+name: webui-docker
+
+services:
+  download:
+    build: ./services/download/
+    profiles: ["download"]
+    volumes:
+      - ./data:/data
+
+  auto:
+    build: ./services/AUTOMATIC1111
+    # tag
+    image: sd-auto:78
+    profiles: ["auto"]
+    stop_signal: SIGKILL
+    tty: true
+    ports:
+      - "${WEBUI_PORT:-7860}:7860"
+    environment:
+      - CLI_ARGS=--allow-code --medvram --xformers --enable-insecure-extension-access --api
+    volumes:
+      - ./data:/data
+      - ./output:/output
+    # (Swarm mode) Set which GPU/GPUs to attach to the container
+    # check https://github.com/neggles/sd-webui-docker/blob/main/docker-compose.override.example.yml for further examples
+    deploy:
+      resources:
+        reservations:
+          devices:
+              - driver: nvidia
+                device_ids: ['0']
+                capabilities: [compute, utility]
+
+  auto-cpu:
+    build: ./services/AUTOMATIC1111
+    # tag
+    image: sd-auto:78
+    profiles: ["auto-cpu"]
+    stop_signal: SIGKILL
+    tty: true
+    ports:
+      - "${WEBUI_PORT:-7860}:7860"
+    environment:
+      - CLI_ARGS=--no-half --precision full --allow-code --enable-insecure-extension-access --api
+    volumes:
+      - ./data:/data
+      - ./output:/output
+
+
+  # comfy: &comfy
+  #   <<: *base_service
+  #   profiles: ["comfy"]
+  #   build: ./services/comfy/
+  #   image: sd-comfy:7
+  #   environment:
+  #     - CLI_ARGS=
+
+
+  # comfy-cpu:
+  #   <<: *comfy
+  #   profiles: ["comfy-cpu"]
+  #   deploy: {}
+  #   environment:
+  #     - CLI_ARGS=--cpu
